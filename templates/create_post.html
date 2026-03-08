@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card form-card">
+    <h2>Create Post</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <label>Content</label>
+        <textarea name="content" rows="5" placeholder="What's on your mind?"></textarea>
+
+        <label>Upload Image / Video</label>
+        <input type="file" name="media" accept="image/*,video/*">
+
+        <button type="submit" class="btn">Post</button>
+    </form>
+</div>
+{% endblock %}

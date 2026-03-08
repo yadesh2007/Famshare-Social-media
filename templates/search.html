@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card form-card">
+    <h2>Search</h2>
+    <form method="GET">
+        <input type="text" name="q" placeholder="Search users or posts..." value="{{ q }}">
+        <button type="submit" class="btn">Search</button>
+    </form>
+</div>
+
+{% if q %}
+    <h3 class="page-title">User Results</h3>
+    {% for user in users_result %}
+        <div class="card">
+            <a href="{{ url_for('profile', user_id=user.id) }}"><strong>{{ user.username }}</strong></a>
+            <p>{{ user.email }}</p>
+            <p>{{ user.bio }}</p>
+        </div>
+    {% else %}
+        <div class="card">No users found.</div>
+    {% endfor %}
+
+    <h3 class="page-title">Post Results</h3>
+    {% for post in posts_result %}
+        <div class="card">
+            <strong>{{ post.username }}</strong>
+            <p>{{ post.content }}</p>
+            <div class="muted">{{ post.created_at }}</div>
+        </div>
+    {% else %}
+        <div class="card">No posts found.</div>
+    {% endfor %}
+{% endif %}
+{% endblock %}

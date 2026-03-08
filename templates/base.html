@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FamShare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- Splash Screen -->
+    <div id="intro-screen">
+        <div class="intro-cover"></div>
+        <div class="intro-logo-wrap">
+            <div class="intro-logo-circle">F</div>
+            <h1 class="intro-title">FamShare</h1>
+            <p class="intro-subtitle">Connect • Share • Express</p>
+        </div>
+    </div>
+
+    <div id="main-content" class="hidden-content {% if session.get('user_id') %}app-shell{% else %}public-shell{% endif %}">
+        
+        {% if session.get('user_id') %}
+        <aside class="sidebar">
+            <div>
+                <a href="{{ url_for('index') }}" class="brand big-brand">FamShare</a>
+
+<nav class="side-links">
+    <a href="{{ url_for('feed') }}">🏠 Feed</a>
+    <a href="{{ url_for('users') }}">👥 Users</a>
+    <a href="{{ url_for('search') }}">🔎 Search</a>
+
+    {% if current_user_data %}
+        <a href="{{ url_for('create_post') }}">➕ Create</a>
+        <a href="{{ url_for('create_story') }}">📸 Add Story</a>
+        <a href="{{ url_for('chat_list') }}">💬 Messages</a>
+        <a href="{{ url_for('ai_tools') }}">🤖 AI Tools</a>
+        <a href="{{ url_for('profile', user_id=current_user_data.id) }}">🙍 Profile</a>
+        <a href="{{ url_for('edit_profile') }}">✏️ Edit Profile</a>
+        <a href="{{ url_for('logout') }}">🚪 Logout</a>
+    {% else %}
+        <a href="{{ url_for('login') }}">🔐 Login</a>
+        <a href="{{ url_for('register') }}">📝 Register</a>
+    {% endif %}
+</nav>
+
+                <button id="theme-toggle" class="theme-toggle-btn">🌙 Dark Mode</button>
+            </div>
+
+            <div class="sidebar-bottom">
+                <a href="{{ url_for('admin_login') }}" class="admin-link">Admin Panel</a>
+            </div>
+        </aside>
+        {% endif %}
+
+        <main class="{% if session.get('user_id') %}main-area{% else %}public-main{% endif %}">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

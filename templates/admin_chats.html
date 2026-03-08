@@ -1,0 +1,16 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<h2 class="page-title">Manage Chats</h2>
+
+{% for chat in chats %}
+<div class="card">
+    <p><strong>Conversation ID:</strong> {{ chat.id }}</p>
+    <p><strong>Users:</strong> {{ chat.user1_name }} ↔ {{ chat.user2_name }}</p>
+    <p><strong>Total Messages:</strong> {{ chat.message_count }}</p>
+    <p><strong>Created:</strong> {{ chat.created_at }}</p>
+    <a class="btn" href="{{ url_for('admin_chat_view', conversation_id=chat.id) }}">View Messages</a>
+</div>
+{% else %}
+<div class="card">No chats found.</div>
+{% endfor %}
+{% endblock %}

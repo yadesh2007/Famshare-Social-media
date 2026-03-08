@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="stories">
+    {% if session.get('user_id') %}
+    <a href="{{ url_for('create_story') }}" class="story">
+        <div class="story-ring add-story-ring">
+            <div class="add-story-inner">+</div>
+        </div>
+        <span>Your Story</span>
+    </a>
+    {% endif %}
+
+    {% for user in story_users %}
+    <a href="{{ url_for('view_stories', user_id=user.id) }}" class="story">
+        <div class="story-ring {% if user.has_unseen %}unseen-story{% else %}seen-story{% endif %}">
+            <img src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="story">
+        </div>
+        <span>{{ user.username }}</span>
+    </a>
+    {% endfor %}
+</div>
+
+<h2 class="page-title">Feed</h2>
+
+{% if posts %}
+    {% for post in posts %}
+        <div class="card insta-post">
+            <div class="post-header">
+                <img class="avatar" src="{{ url_for('static', filename='uploads/profiles/' + post.profile_pic) if post.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+                <div>
+                    <a class="username" href="{{ url_for('profile', user_id=post.user_id) }}">{{ post.username }}</a>
+                    <div class="muted">{{ post.created_at }}</div>
+                </div>
+            </div>
+
+            {% if post.content %}
+                <p class="post-content">{{ post.content }}</p>
+            {% endif %}
+
+            {% if post.media_file %}
+                {% if post.media_type == 'image' %}
+                    <img class="post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}" alt="post image">
+                {% elif post.media_type == 'video' %}
+                    <video class="post-media" controls>
+                        <source src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}">
+                    </video>
+                {% endif %}
+            {% endif %}
+
+            <div class="post-actions">
+                {% if session.get('user_id') %}
+                    <form method="POST" action="{{ url_for('like_post', post_id=post.id) }}">
+                        <button type="submit" class="btn small-btn">❤️ Like / Unlike</button>
+                    </form>
+                {% endif %}
+
+                <span>{{ post.like_count }} Likes</span>
+                <span>{{ post.comment_count }} Comments</span>
+
+                {% if session.get('user_id') == post.user_id %}
+                    <a class="btn small-btn" href="{{ url_for('edit_post', post_id=post.id) }}">Edit</a>
+                    <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" onsubmit="return confirm('Delete this post?')">
+                        <button type="submit" class="btn danger small-btn">Delete</button>
+                    </form>
+                {% endif %}
+            </div>
+
+            <div class="comments">
+                {% for comment in comments_map[post.id] %}
+                    <div class="comment-item"><strong>{{ comment.username }}</strong>: {{ comment.comment_text }}</div>
+                {% else %}
+                    <div class="muted">No comments yet.</div>
+                {% endfor %}
+            </div>
+
+            {% if session.get('user_id') %}
+                <form method="POST" action="{{ url_for('comment_post', post_id=post.id) }}" class="comment-form">
+                    <input type="text" name="comment_text" placeholder="Add a comment..." required>
+                    <button type="submit" class="btn small-btn">Post</button>
+                </form>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="card">No posts yet.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="page-title">Chat with {{ other_user.username }}</h2>
+
+<div class="chat-layout">
+    <div class="card chat-sidebar-panel">
+        <h3>Your Chats</h3>
+        <div class="chat-conversation-list">
+            {% for convo in conversations %}
+                <a
+                    class="chat-convo-item {% if convo.conversation_id == conversation_id %}active-chat{% endif %}"
+                    href="{{ url_for('chat_room', conversation_id=convo.conversation_id) }}"
+                >
+                    <img
+                        class="avatar"
+                        src="{% if convo.other_profile_pic != 'default.png' %}{{ url_for('static', filename='uploads/profiles/' + convo.other_profile_pic) }}{% else %}{{ url_for('static', filename='img/default.png') }}{% endif %}"
+                        alt="profile"
+                    >
+                    <div class="chat-convo-text">
+                        <strong>{{ convo.other_username }}</strong>
+                        <div class="muted">
+                            {{ convo.last_message if convo.last_message else "No messages yet" }}
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card chat-main-panel">
+        <div class="chat-topbar">
+            <img
+                class="avatar"
+                src="{% if other_user.profile_pic != 'default.png' %}{{ url_for('static', filename='uploads/profiles/' + other_user.profile_pic) }}{% else %}{{ url_for('static', filename='img/default.png') }}{% endif %}"
+                alt="profile"
+            >
+            <div>
+                <strong>{{ other_user.username }}</strong>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+            {% if messages %}
+                {% for msg in messages %}
+                    <div class="message-row {% if msg.sender_id == current_user_id %}sent{% else %}received{% endif %}">
+                        <div class="message-bubble">
+                            <div>{{ msg.message_text }}</div>
+                            <small>{{ msg.created_at }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="muted" id="empty-chat-text">No messages yet. Say hello 👋</div>
+            {% endif %}
+        </div>
+
+        <form id="chat-form" class="chat-send-form">
+            <input
+                type="text"
+                id="message-input"
+                name="message_text"
+                placeholder="Type your message..."
+                autocomplete="off"
+                required
+            >
+            <button type="submit" class="btn">Send</button>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+    const conversationId = {{ conversation_id|tojson }};
+    const currentUserId = {{ current_user_id|tojson }};
+    const chatMessages = document.getElementById("chat-messages");
+    const chatForm = document.getElementById("chat-form");
+    const messageInput = document.getElementById("message-input");
+
+    const socket = io();
+
+    socket.on("connect", function () {
+        socket.emit("join_chat", {
+            conversation_id: conversationId
+        });
+    });
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendMessage(senderId, messageText, createdAt) {
+        const emptyText = document.getElementById("empty-chat-text");
+        if (emptyText) {
+            emptyText.remove();
+        }
+
+        const row = document.createElement("div");
+        row.className = "message-row " + (Number(senderId) === Number(currentUserId) ? "sent" : "received");
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+
+        const textDiv = document.createElement("div");
+        textDiv.textContent = messageText;
+
+        const timeSmall = document.createElement("small");
+        timeSmall.textContent = createdAt || "Just now";
+
+        bubble.appendChild(textDiv);
+        bubble.appendChild(timeSmall);
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+
+        scrollToBottom();
+    }
+
+    socket.on("receive_chat_message", function (data) {
+        if (Number(data.conversation_id) !== Number(conversationId)) {
+            return;
+        }
+
+        appendMessage(data.sender_id, data.message_text, data.created_at);
+    });
+
+    chatForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        socket.emit("send_chat_message", {
+            conversation_id: conversationId,
+            sender_id: currentUserId,
+            message_text: text
+        });
+
+        messageInput.value = "";
+        messageInput.focus();
+    });
+
+    scrollToBottom();
+</script>
+{% endblock %}

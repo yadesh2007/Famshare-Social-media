@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card form-card">
+    <h2>Add Story</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <label>Caption</label>
+        <input type="text" name="caption" placeholder="Write a short caption">
+
+        <label>Upload Image / Video</label>
+        <input type="file" name="media" accept="image/*,video/*" required>
+
+        <button type="submit" class="btn">Upload Story</button>
+    </form>
+</div>
+{% endblock %}

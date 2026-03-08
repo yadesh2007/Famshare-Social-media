@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="page-title">Admin Dashboard</h2>
+
+<div class="stats-grid">
+    <div class="card"><h3>{{ user_count }}</h3><p>Users</p></div>
+    <div class="card"><h3>{{ post_count }}</h3><p>Posts</p></div>
+    <div class="card"><h3>{{ comment_count }}</h3><p>Comments</p></div>
+    <div class="card"><h3>{{ like_count }}</h3><p>Likes</p></div>
+</div>
+
+<h3 class="page-title">Recent Users</h3>
+{% for user in recent_users %}
+    <div class="card">
+        <strong>{{ user.username }}</strong> - {{ user.email }}
+    </div>
+{% endfor %}
+
+<h3 class="page-title">Recent Posts</h3>
+{% for post in recent_posts %}
+    <div class="card">
+        <strong>{{ post.username }}</strong>
+        <p>{{ post.content }}</p>
+        <div class="muted">{{ post.created_at }}</div>
+    </div>
+{% endfor %}
+{% endblock %}

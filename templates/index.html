@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+    <div>
+        <h1>Welcome to FamShare</h1>
+        <p>
+            A colorful social media platform where users can share posts,
+            upload photos and videos, chat with others, and explore AI tools.
+        </p>
+
+        <div class="welcome-btns">
+            <a class="btn" href="{{ url_for('login') }}">Login</a>
+            <a class="btn" href="{{ url_for('register') }}">Register</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

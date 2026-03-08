@@ -1,0 +1,18 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<h2 class="page-title">Manage Posts</h2>
+
+{% for post in posts %}
+<div class="card">
+    <p><strong>Post ID:</strong> {{ post.id }}</p>
+    <p><strong>User:</strong> {{ post.username }} (User ID {{ post.user_id }})</p>
+    <p><strong>Content:</strong> {{ post.content }}</p>
+    <p><strong>Media Type:</strong> {{ post.media_type or "None" }}</p>
+    <p><strong>Created:</strong> {{ post.created_at }}</p>
+
+    <form method="POST" action="{{ url_for('admin_delete_post', post_id=post.id) }}" onsubmit="return confirm('Delete this post?')">
+        <button type="submit" class="btn danger">Delete Post</button>
+    </form>
+</div>
+{% endfor %}
+{% endblock %}

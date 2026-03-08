@@ -1,0 +1,23 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<h2 class="page-title">Conversation #{{ conversation.id }}</h2>
+
+<div class="card">
+    <p><strong>Users:</strong> {{ conversation.user1_name }} ↔ {{ conversation.user2_name }}</p>
+    <p><strong>Created:</strong> {{ conversation.created_at }}</p>
+</div>
+
+<div class="card">
+    <h3>Messages</h3>
+    {% for msg in messages %}
+        <div class="admin-message-row">
+            <strong>{{ msg.sender_name }}</strong>
+            <p>{{ msg.message_text }}</p>
+            <small class="muted">{{ msg.created_at }}</small>
+            <hr>
+        </div>
+    {% else %}
+        <p class="muted">No messages in this conversation.</p>
+    {% endfor %}
+</div>
+{% endblock %}

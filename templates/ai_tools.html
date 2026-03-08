@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card form-card">
+    <h2>AI Tools</h2>
+    <form method="POST">
+        <label>Select Tool</label>
+        <select name="tool">
+            <option value="caption" {% if selected_tool == 'caption' %}selected{% endif %}>Caption Generator</option>
+            <option value="hashtags" {% if selected_tool == 'hashtags' %}selected{% endif %}>Hashtag Generator</option>
+            <option value="comment" {% if selected_tool == 'comment' %}selected{% endif %}>Comment Reply</option>
+        </select>
+
+        <label>Input</label>
+        <textarea name="input_text" rows="5" required>{{ input_text }}</textarea>
+
+        <button type="submit" class="btn">Generate</button>
+    </form>
+
+    {% if output %}
+        <div class="ai-output">
+            <h3>Output</h3>
+            <pre>{{ output }}</pre>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

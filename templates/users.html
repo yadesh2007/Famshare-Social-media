@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="page-title">All Users</h2>
+
+<div class="user-grid">
+    {% for user in users %}
+        <div class="card user-card">
+            <img class="profile-pic-small" src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+            <h3>{{ user.username }}</h3>
+            <p>{{ user.email }}</p>
+            <p>{{ user.bio or "No bio" }}</p>
+            <p><strong>{{ user.post_count }}</strong> Posts</p>
+            <a class="btn small-btn" href="{{ url_for('profile', user_id=user.id) }}">View Profile</a>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

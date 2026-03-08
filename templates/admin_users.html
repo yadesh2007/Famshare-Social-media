@@ -1,0 +1,18 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<h2 class="page-title">Manage Users</h2>
+
+{% for user in users %}
+<div class="card">
+    <p><strong>User ID:</strong> {{ user.id }}</p>
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Bio:</strong> {{ user.bio or "No bio" }}</p>
+    <p><strong>Posts:</strong> {{ user.post_count }}</p>
+
+    <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" onsubmit="return confirm('Delete this user?')">
+        <button type="submit" class="btn danger">Delete User</button>
+    </form>
+</div>
+{% endfor %}
+{% endblock %}

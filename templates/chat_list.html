@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="page-title">Messages</h2>
+
+<div class="chat-layout">
+    <div class="card chat-sidebar-panel">
+        <h3>Start New Chat</h3>
+        <div class="chat-user-list">
+            {% for user in all_users %}
+                <a class="chat-user-row" href="{{ url_for('start_chat', user_id=user.id) }}">
+                    <img class="avatar" src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+                    <div><strong>{{ user.username }}</strong></div>
+                </a>
+            {% else %}
+                <p class="muted">No other users available.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card chat-main-panel">
+        <h3>Recent Conversations</h3>
+        <div class="chat-conversation-list">
+            {% for convo in conversations %}
+                <a class="chat-convo-item" href="{{ url_for('chat_room', conversation_id=convo.conversation_id) }}">
+                    <img class="avatar" src="{{ url_for('static', filename='uploads/profiles/' + convo.other_profile_pic) if convo.other_profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+                    <div class="chat-convo-text">
+                        <strong>{{ convo.other_username }}</strong>
+                        <div class="muted">{{ convo.last_message if convo.last_message else "No messages yet" }}</div>
+                    </div>
+                </a>
+            {% else %}
+                <div class="muted">No conversations yet. Start chatting with a user.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card profile-card">
+    <div class="profile-top">
+        <img class="profile-pic-large" src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+        <div>
+            <h2>{{ user.username }}</h2>
+            <p>{{ user.bio or "No bio yet." }}</p>
+            <div class="profile-stats">
+                <span><strong>{{ posts|length }}</strong> Posts</span>
+                <span><strong>{{ followers }}</strong> Followers</span>
+                <span><strong>{{ following }}</strong> Following</span>
+            </div>
+
+            {% if can_follow %}
+                <div class="profile-action-row">
+                    <form method="POST" action="{{ url_for('follow_user', user_id=user.id) }}">
+                        <button type="submit" class="btn">
+                            {% if already_following %}Unfollow{% else %}Follow{% endif %}
+                        </button>
+                    </form>
+
+                    <a class="btn" href="{{ url_for('start_chat', user_id=user.id) }}">Message</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<h3 class="page-title">Posts by {{ user.username }}</h3>
+
+{% for post in posts %}
+    <div class="card post-card">
+        <div class="muted">{{ post.created_at }}</div>
+        <p>{{ post.content }}</p>
+
+        {% if post.media_file %}
+            {% if post.media_type == 'image' %}
+                <img class="post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}">
+            {% elif post.media_type == 'video' %}
+                <video class="post-media" controls>
+                    <source src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}">
+                </video>
+            {% endif %}
+        {% endif %}
+
+        <div class="post-actions">
+            <span>{{ post.like_count }} Likes</span>
+            <span>{{ post.comment_count }} Comments</span>
+        </div>
+    </div>
+{% else %}
+    <div class="card">No posts yet.</div>
+{% endfor %}
+{% endblock %}

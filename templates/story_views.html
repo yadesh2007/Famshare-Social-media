@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card form-card">
+    <h2>Story Viewers</h2>
+
+    {% if viewers %}
+        {% for viewer in viewers %}
+        <div class="viewer-row">
+            <img class="avatar" src="{{ url_for('static', filename='uploads/profiles/' + viewer.profile_pic) if viewer.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="viewer">
+            <div>
+                <strong>{{ viewer.username }}</strong>
+                <div class="muted">{{ viewer.viewed_at }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="muted">No viewers yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

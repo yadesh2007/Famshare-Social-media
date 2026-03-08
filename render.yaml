@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: famshare-social-media
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:app

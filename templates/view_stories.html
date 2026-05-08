@@ -19,12 +19,17 @@
 
     <div class="story-topbar-full">
         <div class="story-user-info">
-            <img class="avatar" src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+            <img
+                class="avatar"
+                src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}"
+                alt="{{ user.username }} profile"
+            >
             <div>
                 <strong>{{ user.username }}</strong>
+                <div class="muted">{{ stories|length }} active {{ "story" if stories|length == 1 else "stories" }}</div>
             </div>
         </div>
-        <a href="{{ url_for('feed') }}" class="btn small-btn">Close</a>
+        <a href="{{ url_for('feed') }}" class="btn small-btn story-close-btn">Close</a>
     </div>
 
     <div id="story-container">
@@ -34,7 +39,7 @@
                 {% if story.media_type == 'image' %}
                     <img class="story-media-full" src="{{ url_for('static', filename='uploads/posts/' + story.media_file) }}" alt="story image">
                 {% elif story.media_type == 'video' %}
-                    <video class="story-media-full story-video" {% if loop.index0 == 0 %}autoplay{% endif %} muted playsinline>
+                    <video class="story-media-full story-video" {% if loop.index0 == 0 %}autoplay{% endif %} muted playsinline controls>
                         <source src="{{ url_for('static', filename='uploads/posts/' + story.media_file) }}">
                     </video>
                 {% endif %}
@@ -47,7 +52,7 @@
             {% if current_user_id == user.id %}
             <div class="story-owner-actions">
                 <a href="{{ url_for('story_views_page', story_id=story.id) }}" class="btn small-btn">
-                    👁 {{ story_views_count[story.id] }} Views
+                    {{ story_views_count.get(story.id, 0) }} Views
                 </a>
 
                 <form method="POST" action="{{ url_for('delete_story', story_id=story.id) }}" onsubmit="return confirm('Delete this story?')">
@@ -59,70 +64,89 @@
         {% endfor %}
     </div>
 
-    <div class="story-nav-zone left-zone" onclick="prevStory()"></div>
-    <div class="story-nav-zone right-zone" onclick="nextStory()"></div>
+    <button class="story-nav-zone left-zone" type="button" aria-label="Previous story"></button>
+    <button class="story-nav-zone right-zone" type="button" aria-label="Next story"></button>
 </div>
 
 <script>
-    const storySlides = document.querySelectorAll(".story-slide");
-    const progressBars = document.querySelectorAll(".story-progress-fill");
-    const videos = document.querySelectorAll(".story-video");
+    const storySlides = Array.from(document.querySelectorAll(".story-slide"));
+    const progressBars = Array.from(document.querySelectorAll(".story-progress-fill"));
 
     let currentStory = 0;
     let storyTimer = null;
     let progressTimer = null;
-    let progressValue = 0;
-    const duration = 5000;
+    let startedAt = 0;
+    let activeDuration = 5000;
+
+    function resetTimers() {
+        clearTimeout(storyTimer);
+        clearInterval(progressTimer);
+    }
+
+    function setProgress(index, percent) {
+        if (progressBars[index]) {
+            progressBars[index].style.width = Math.min(percent, 100) + "%";
+        }
+    }
 
     function resetProgressBars() {
         progressBars.forEach((bar, index) => {
-            if (index < currentStory) {
-                bar.style.width = "100%";
-            } else {
-                bar.style.width = "0%";
+            bar.style.width = index < currentStory ? "100%" : "0%";
+        });
+    }
+
+    function pauseAllVideos() {
+        storySlides.forEach((slide) => {
+            const video = slide.querySelector("video");
+            if (video) {
+                video.pause();
+                video.currentTime = 0;
             }
         });
     }
 
+    function startProgress(duration) {
+        activeDuration = duration;
+        startedAt = Date.now();
+        progressTimer = setInterval(() => {
+            const elapsed = Date.now() - startedAt;
+            setProgress(currentStory, (elapsed / activeDuration) * 100);
+        }, 80);
+        storyTimer = setTimeout(nextStory, activeDuration);
+    }
+
     function showStory(index) {
-        clearTimeout(storyTimer);
-        clearInterval(progressTimer);
+        resetTimers();
+        pauseAllVideos();
 
-        storySlides.forEach((slide, i) => {
-            slide.classList.remove("active-story");
-            if (videos[i]) {
-                videos[i].pause();
-                videos[i].currentTime = 0;
-            }
-        });
-
-        currentStory = index;
-
-        if (currentStory < 0) currentStory = 0;
-        if (currentStory >= storySlides.length) {
+        if (index < 0) {
+            index = 0;
+        }
+        if (index >= storySlides.length) {
             window.location.href = "{{ url_for('feed') }}";
             return;
         }
 
+        currentStory = index;
+        storySlides.forEach((slide) => slide.classList.remove("active-story"));
         storySlides[currentStory].classList.add("active-story");
         resetProgressBars();
 
-        progressValue = 0;
-        progressTimer = setInterval(() => {
-            progressValue += 100 / (duration / 100);
-            if (progressBars[currentStory]) {
-                progressBars[currentStory].style.width = progressValue + "%";
-            }
-        }, 100);
-
         const currentVideo = storySlides[currentStory].querySelector("video");
         if (currentVideo) {
-            currentVideo.play();
+            currentVideo.play().catch(() => {});
+            const duration = Number.isFinite(currentVideo.duration) && currentVideo.duration > 0
+                ? currentVideo.duration * 1000
+                : 7000;
+            startProgress(Math.max(duration, 3000));
+            currentVideo.onloadedmetadata = function () {
+                resetTimers();
+                startProgress(Math.max(currentVideo.duration * 1000, 3000));
+                currentVideo.play().catch(() => {});
+            };
+        } else {
+            startProgress(5000);
         }
-
-        storyTimer = setTimeout(() => {
-            nextStory();
-        }, duration);
     }
 
     function nextStory() {
@@ -133,10 +157,13 @@
         showStory(currentStory - 1);
     }
 
-    document.addEventListener("keydown", function(e) {
-        if (e.key === "ArrowRight") nextStory();
-        if (e.key === "ArrowLeft") prevStory();
-        if (e.key === "Escape") window.location.href = "{{ url_for('feed') }}";
+    document.querySelector(".left-zone").addEventListener("click", prevStory);
+    document.querySelector(".right-zone").addEventListener("click", nextStory);
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "ArrowRight") nextStory();
+        if (event.key === "ArrowLeft") prevStory();
+        if (event.key === "Escape") window.location.href = "{{ url_for('feed') }}";
     });
 
     showStory(0);

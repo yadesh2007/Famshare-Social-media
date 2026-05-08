@@ -7,3 +7,4 @@ gunicorn
 gevent
 gevent-websocket
 requests
+cryptography

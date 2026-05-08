@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card profile-card">
+    {% if session.get('user_id') == user.id %}
+        <a
+            class="profile-edit-btn"
+            href="{{ url_for('edit_profile') }}"
+            aria-label="Edit profile"
+            title="Edit profile"
+        >
+            ✎ Edit
+        </a>
+        <button class="profile-sos-btn" data-open-sos type="button">SOS</button>
+    {% endif %}
+
     <div class="profile-top">
         <img class="profile-pic-large" src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
         <div>
@@ -20,7 +32,9 @@
                         </button>
                     </form>
 
-                    <a class="btn" href="{{ url_for('start_chat', user_id=user.id) }}">Message</a>
+                    {% if session.get('user_id') and current_user_data %}
+                        <a class="btn" href="{{ url_for('start_chat', user_id=user.id) }}">Message</a>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>

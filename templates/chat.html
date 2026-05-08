@@ -14,7 +14,7 @@
                     <img
                         class="avatar"
                         src="{% if convo.other_profile_pic != 'default.png' %}{{ url_for('static', filename='uploads/profiles/' + convo.other_profile_pic) }}{% else %}{{ url_for('static', filename='img/default.png') }}{% endif %}"
-                        alt="profile"
+                        alt="{{ convo.other_username }} profile"
                     >
                     <div class="chat-convo-text">
                         <strong>{{ convo.other_username }}</strong>
@@ -23,6 +23,8 @@
                         </div>
                     </div>
                 </a>
+            {% else %}
+                <p class="muted">No conversations yet.</p>
             {% endfor %}
         </div>
     </div>
@@ -32,41 +34,46 @@
             <img
                 class="avatar"
                 src="{% if other_user.profile_pic != 'default.png' %}{{ url_for('static', filename='uploads/profiles/' + other_user.profile_pic) }}{% else %}{{ url_for('static', filename='img/default.png') }}{% endif %}"
-                alt="profile"
+                alt="{{ other_user.username }} profile"
             >
             <div>
                 <strong>{{ other_user.username }}</strong>
+                <div class="muted" id="chat-status">Connecting...</div>
             </div>
         </div>
 
         <div class="chat-messages" id="chat-messages">
             {% if messages %}
                 {% for msg in messages %}
-                    <div class="message-row {% if msg.sender_id == current_user_id %}sent{% else %}received{% endif %}">
+                    <div class="message-row {% if msg.sender_id == current_user_id %}sent{% else %}received{% endif %}" data-message-id="{{ msg.id }}" data-sender-id="{{ msg.sender_id }}">
                         <div class="message-bubble">
-                            <div>{{ msg.message_text }}</div>
+                            <div class="message-text">{{ msg.message_text }}</div>
                             <small>{{ msg.created_at }}</small>
                         </div>
                     </div>
                 {% endfor %}
             {% else %}
-                <div class="muted" id="empty-chat-text">No messages yet. Say hello 👋</div>
+                <div class="muted" id="empty-chat-text">No messages yet. Say hello.</div>
             {% endif %}
         </div>
 
-        <form id="chat-form" class="chat-send-form">
+        <form id="chat-form" class="chat-send-form" method="POST" action="{{ url_for('send_message_fallback', conversation_id=conversation_id) }}">
             <input
                 type="text"
                 id="message-input"
                 name="message_text"
                 placeholder="Type your message..."
                 autocomplete="off"
+                maxlength="1000"
                 required
             >
             <button type="submit" class="btn">Send</button>
         </form>
     </div>
 </div>
+
+<div id="message-action-popup" class="message-action-popup" aria-label="Message actions"></div>
+<div id="message-emoji-popup" class="message-emoji-popup" aria-label="Emoji reactions"></div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
@@ -75,20 +82,44 @@
     const chatMessages = document.getElementById("chat-messages");
     const chatForm = document.getElementById("chat-form");
     const messageInput = document.getElementById("message-input");
+    const chatStatus = document.getElementById("chat-status");
+    const messageActionPopup = document.getElementById("message-action-popup");
+    const messageEmojiPopup = document.getElementById("message-emoji-popup");
+    const forwardTargets = [
+        {% for convo in conversations %}
+            {
+                id: {{ convo.conversation_id|tojson }},
+                name: {{ convo.other_username|tojson }}
+            }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    const renderedMessageIds = new Set(
+        Array.from(document.querySelectorAll("[data-message-id]"))
+            .map((node) => node.dataset.messageId)
+            .filter(Boolean)
+    );
+    let ignoreNextOutsideClick = false;
+    let ignoreNextEmojiOutsideClick = false;
 
-    const socket = io();
-
-    socket.on("connect", function () {
-        socket.emit("join_chat", {
-            conversation_id: conversationId
-        });
+    const socket = io({
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 700
     });
 
     function scrollToBottom() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    function appendMessage(senderId, messageText, createdAt) {
+    function appendMessage(senderId, messageText, createdAt, messageId) {
+        if (messageId && renderedMessageIds.has(String(messageId))) {
+            return;
+        }
+        if (messageId) {
+            renderedMessageIds.add(String(messageId));
+        }
+
         const emptyText = document.getElementById("empty-chat-text");
         if (emptyText) {
             emptyText.remove();
@@ -96,11 +127,16 @@
 
         const row = document.createElement("div");
         row.className = "message-row " + (Number(senderId) === Number(currentUserId) ? "sent" : "received");
+        row.dataset.senderId = String(senderId);
+        if (messageId) {
+            row.dataset.messageId = String(messageId);
+        }
 
         const bubble = document.createElement("div");
         bubble.className = "message-bubble";
 
         const textDiv = document.createElement("div");
+        textDiv.className = "message-text";
         textDiv.textContent = messageText;
 
         const timeSmall = document.createElement("small");
@@ -114,23 +150,430 @@
         scrollToBottom();
     }
 
+    function buildActionButton(action, symbol, label, isDanger) {
+        return `
+            <button type="button" class="message-action ${isDanger ? "danger-action" : ""}" data-action="${action}">
+                <span class="message-action-symbol">${symbol}</span>
+                <span>${label}</span>
+            </button>
+        `;
+    }
+
+    function hideMessageActionPopup() {
+        messageActionPopup.classList.remove("show-action-popup");
+        messageActionPopup.removeAttribute("data-message-id");
+        document.querySelectorAll(".message-row.action-selected").forEach(function (row) {
+            row.classList.remove("action-selected", "show-message-time", "message-sliding");
+            row.style.removeProperty("--message-slide-x");
+        });
+    }
+
+    function hideMessageEmojiPopup() {
+        messageEmojiPopup.classList.remove("show-emoji-popup");
+        messageEmojiPopup.removeAttribute("data-message-id");
+        document.querySelectorAll(".message-row.emoji-selected").forEach(function (row) {
+            row.classList.remove("emoji-selected");
+        });
+    }
+
+    function showMessageActionPopup(row) {
+        if (!row || !row.dataset.messageId) {
+            return;
+        }
+
+        const bubble = row.querySelector(".message-bubble");
+        const isOwnMessage = Number(row.dataset.senderId) === Number(currentUserId);
+        const rect = bubble.getBoundingClientRect();
+        const popupWidth = Math.min(340, window.innerWidth - 24);
+        const centerLeft = rect.left + (rect.width / 2) - (popupWidth / 2);
+        const left = Math.max(12, Math.min(window.innerWidth - popupWidth - 12, centerLeft));
+        const top = Math.max(12, rect.top - 58);
+
+        messageActionPopup.innerHTML = [
+            buildActionButton("copy", "\u29c9", "Copy", false),
+            buildActionButton("forward", "\u2192", "Forward", false),
+            isOwnMessage ? buildActionButton("edit", "\u270e", "Edit", false) : "",
+            isOwnMessage ? buildActionButton("delete", "\u00d7", "Delete", true) : ""
+        ].join("");
+
+        messageActionPopup.dataset.messageId = row.dataset.messageId;
+        messageActionPopup.style.left = left + "px";
+        messageActionPopup.style.top = top + "px";
+        messageActionPopup.style.width = popupWidth + "px";
+
+        document.querySelectorAll(".message-row.action-selected").forEach(function (selectedRow) {
+            selectedRow.classList.remove("action-selected");
+        });
+        row.classList.add("action-selected", "show-message-time");
+        messageActionPopup.classList.add("show-action-popup");
+        ignoreNextOutsideClick = true;
+    }
+
+    function showMessageEmojiPopup(row) {
+        if (!row || !row.dataset.messageId) {
+            return;
+        }
+
+        const bubble = row.querySelector(".message-bubble");
+        const rect = bubble.getBoundingClientRect();
+        const popupWidth = Math.min(300, window.innerWidth - 24);
+        const centerLeft = rect.left + (rect.width / 2) - (popupWidth / 2);
+        const left = Math.max(12, Math.min(window.innerWidth - popupWidth - 12, centerLeft));
+        const top = Math.max(12, rect.top - 58);
+        const emojis = ["\u2764\ufe0f", "\ud83d\ude02", "\ud83d\ude2e", "\ud83d\ude22", "\ud83d\ude21", "\ud83d\udc4d"];
+
+        messageEmojiPopup.innerHTML = emojis.map(function (emoji) {
+            return `<button type="button" class="emoji-reaction-btn" data-emoji="${emoji}">${emoji}</button>`;
+        }).join("");
+
+        messageEmojiPopup.dataset.messageId = row.dataset.messageId;
+        messageEmojiPopup.style.left = left + "px";
+        messageEmojiPopup.style.top = top + "px";
+        messageEmojiPopup.style.width = popupWidth + "px";
+
+        document.querySelectorAll(".message-row.emoji-selected").forEach(function (selectedRow) {
+            selectedRow.classList.remove("emoji-selected");
+        });
+        hideMessageActionPopup();
+        row.classList.add("emoji-selected");
+        messageEmojiPopup.classList.add("show-emoji-popup");
+        ignoreNextEmojiOutsideClick = true;
+    }
+
+    function setMessageReaction(row, emoji) {
+        if (!row || !emoji) {
+            return;
+        }
+
+        let reaction = row.querySelector(".message-reaction");
+        if (!reaction) {
+            reaction = document.createElement("button");
+            reaction.type = "button";
+            reaction.className = "message-reaction";
+            reaction.setAttribute("aria-label", "Message reaction");
+            row.querySelector(".message-bubble").appendChild(reaction);
+        }
+        reaction.textContent = emoji;
+        row.classList.add("has-reaction");
+    }
+
+    function bindMessageTimeReveal() {
+        let activeRow = null;
+        let startX = 0;
+        let startY = 0;
+        let holdTimer = null;
+        let hideTimer = null;
+        let lastTapTime = 0;
+        let lastTappedRow = null;
+
+        function clearHoldTimer() {
+            if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+        }
+
+        function reveal(row) {
+            if (!row) {
+                return;
+            }
+            clearTimeout(hideTimer);
+            showMessageActionPopup(row);
+        }
+
+        function release() {
+            clearHoldTimer();
+            if (!activeRow) {
+                return;
+            }
+
+            const row = activeRow;
+            activeRow = null;
+            row.classList.remove("message-sliding");
+            hideTimer = setTimeout(function () {
+                row.style.removeProperty("--message-slide-x");
+            }, 160);
+        }
+
+        chatMessages.addEventListener("pointerdown", function (event) {
+            if (event.target.closest(".message-action-popup")) {
+                return;
+            }
+
+            const row = event.target.closest(".message-row");
+            if (!row || !chatMessages.contains(row)) {
+                hideMessageActionPopup();
+                return;
+            }
+
+            activeRow = row;
+            startX = event.clientX;
+            startY = event.clientY;
+            row.classList.add("message-sliding");
+            row.style.setProperty("--message-slide-x", "0px");
+            clearHoldTimer();
+            holdTimer = setTimeout(function () {
+                reveal(row);
+            }, 420);
+        });
+
+        chatMessages.addEventListener("click", function (event) {
+            const row = event.target.closest(".message-row");
+            if (!row || !chatMessages.contains(row)) {
+                return;
+            }
+
+            const now = Date.now();
+            if (lastTappedRow === row && now - lastTapTime < 320) {
+                event.preventDefault();
+                hideMessageActionPopup();
+                showMessageEmojiPopup(row);
+                lastTapTime = 0;
+                lastTappedRow = null;
+                return;
+            }
+
+            lastTapTime = now;
+            lastTappedRow = row;
+        });
+
+        chatMessages.addEventListener("pointermove", function (event) {
+            if (!activeRow) {
+                return;
+            }
+
+            const deltaX = event.clientX - startX;
+            const deltaY = event.clientY - startY;
+
+            if (Math.abs(deltaY) > 22 && Math.abs(deltaY) > Math.abs(deltaX)) {
+                release();
+                return;
+            }
+
+            if (Math.abs(deltaX) > 18) {
+                reveal(activeRow);
+                const limitedX = Math.max(-42, Math.min(42, deltaX));
+                activeRow.style.setProperty("--message-slide-x", limitedX + "px");
+            }
+        });
+
+        chatMessages.addEventListener("pointerup", release);
+        chatMessages.addEventListener("pointercancel", release);
+        chatMessages.addEventListener("pointerleave", release);
+        chatMessages.addEventListener("contextmenu", function (event) {
+            if (event.target.closest(".message-row")) {
+                event.preventDefault();
+            }
+        });
+    }
+
+    function showChatStatus(message) {
+        chatStatus.textContent = message;
+        setTimeout(function () {
+            if (chatStatus.textContent === message) {
+                chatStatus.textContent = socket.connected ? "Active now" : "Reconnecting...";
+            }
+        }, 1800);
+    }
+
+    async function postJson(url, payload) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload || {})
+        });
+        const data = await response.json().catch(function () {
+            return {};
+        });
+        if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Action failed.");
+        }
+        return data;
+    }
+
+    async function copyMessageText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+    }
+
+    function chooseForwardConversation() {
+        if (!forwardTargets.length) {
+            return null;
+        }
+
+        if (forwardTargets.length === 1) {
+            return forwardTargets[0].id;
+        }
+
+        const options = forwardTargets
+            .map(function (target, index) {
+                return `${index + 1}. ${target.name}`;
+            })
+            .join("\n");
+        const choice = prompt(`Forward to which chat?\n${options}`);
+        const selectedIndex = Number(choice) - 1;
+
+        if (!Number.isInteger(selectedIndex) || !forwardTargets[selectedIndex]) {
+            return null;
+        }
+        return forwardTargets[selectedIndex].id;
+    }
+
+    messageActionPopup.addEventListener("click", async function (event) {
+        event.stopPropagation();
+        const button = event.target.closest(".message-action");
+        if (!button) {
+            return;
+        }
+
+        const row = document.querySelector(`.message-row[data-message-id="${messageActionPopup.dataset.messageId}"]`);
+        const messageId = row && row.dataset.messageId;
+        const textNode = row && row.querySelector(".message-text");
+        const messageText = textNode ? textNode.textContent : "";
+        const action = button.dataset.action;
+
+        if (!row || !messageId || !textNode) {
+            return;
+        }
+
+        try {
+            if (action === "copy") {
+                await copyMessageText(messageText);
+                showChatStatus("Copied");
+            }
+
+            if (action === "edit") {
+                const updatedText = prompt("Edit message", messageText);
+                if (updatedText === null) {
+                    return;
+                }
+                const trimmedText = updatedText.trim();
+                if (!trimmedText) {
+                    showChatStatus("Message cannot be empty");
+                    return;
+                }
+                const data = await postJson(`/message/${messageId}/edit`, {
+                    message_text: trimmedText
+                });
+                textNode.textContent = data.message_text;
+                showChatStatus("Message edited");
+            }
+
+            if (action === "delete") {
+                if (!confirm("Delete this message?")) {
+                    return;
+                }
+                await postJson(`/message/${messageId}/delete`);
+                row.remove();
+                showChatStatus("Message deleted");
+                hideMessageActionPopup();
+            }
+
+            if (action === "forward") {
+                const targetConversationId = chooseForwardConversation();
+                if (!targetConversationId) {
+                    return;
+                }
+                const data = await postJson(`/message/${messageId}/forward`, {
+                    conversation_id: targetConversationId
+                });
+                if (Number(targetConversationId) === Number(conversationId)) {
+                    appendMessage(currentUserId, messageText, data.created_at, data.message_id);
+                }
+                showChatStatus("Message forwarded");
+            }
+        } catch (error) {
+            showChatStatus(error.message);
+        }
+    });
+
+    messageEmojiPopup.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const button = event.target.closest(".emoji-reaction-btn");
+        if (!button) {
+            return;
+        }
+
+        const row = document.querySelector(`.message-row[data-message-id="${messageEmojiPopup.dataset.messageId}"]`);
+        setMessageReaction(row, button.dataset.emoji);
+        hideMessageEmojiPopup();
+        showChatStatus("Reaction added");
+    });
+
+    document.addEventListener("click", function (event) {
+        if (ignoreNextOutsideClick) {
+            ignoreNextOutsideClick = false;
+            return;
+        }
+
+        if (!event.target.closest(".message-action-popup")) {
+            hideMessageActionPopup();
+        }
+
+        if (ignoreNextEmojiOutsideClick) {
+            ignoreNextEmojiOutsideClick = false;
+            return;
+        }
+
+        if (!event.target.closest(".message-emoji-popup")) {
+            hideMessageEmojiPopup();
+        }
+    });
+
+    socket.on("connect", function () {
+        chatStatus.textContent = "Joining chat...";
+        socket.emit("join_chat", { conversation_id: conversationId });
+    });
+
+    socket.on("disconnect", function () {
+        chatStatus.textContent = "Reconnecting...";
+    });
+
+    socket.on("chat_joined", function (data) {
+        if (Number(data.conversation_id) === Number(conversationId)) {
+            chatStatus.textContent = "Active now";
+        }
+    });
+
+    socket.on("chat_error", function (data) {
+        chatStatus.textContent = data.message || "Chat connection error";
+    });
+
     socket.on("receive_chat_message", function (data) {
         if (Number(data.conversation_id) !== Number(conversationId)) {
             return;
         }
-
-        appendMessage(data.sender_id, data.message_text, data.created_at);
+        appendMessage(data.sender_id, data.message_text, data.created_at, data.message_id);
     });
 
-    chatForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-
+    chatForm.addEventListener("submit", function (event) {
         const text = messageInput.value.trim();
-        if (!text) return;
+        if (!text) {
+            event.preventDefault();
+            return;
+        }
 
+        if (!socket.connected) {
+            return;
+        }
+
+        event.preventDefault();
         socket.emit("send_chat_message", {
             conversation_id: conversationId,
-            sender_id: currentUserId,
             message_text: text
         });
 
@@ -139,5 +582,6 @@
     });
 
     scrollToBottom();
+    bindMessageTimeReveal();
 </script>
 {% endblock %}

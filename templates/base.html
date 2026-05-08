@@ -6,54 +6,64 @@
     <title>FamShare</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-
-    <!-- Splash Screen -->
+<body data-current-user-id="{{ current_user_data.id if session.get('user_id') and current_user_data else '' }}">
     <div id="intro-screen">
         <div class="intro-cover"></div>
         <div class="intro-logo-wrap">
             <div class="intro-logo-circle">F</div>
             <h1 class="intro-title">FamShare</h1>
-            <p class="intro-subtitle">Connect • Share • Express</p>
+            <p class="intro-subtitle">Connect. Share. Express.</p>
         </div>
     </div>
 
-    <div id="main-content" class="hidden-content {% if session.get('user_id') %}app-shell{% else %}public-shell{% endif %}">
-        
-        {% if session.get('user_id') %}
-        <aside class="sidebar">
-            <div>
-                <a href="{{ url_for('index') }}" class="brand big-brand">FamShare</a>
+    <div id="main-content" class="hidden-content {% if session.get('user_id') and current_user_data %}app-shell{% else %}public-shell{% endif %}">
+        {% if session.get('user_id') and current_user_data %}
+        <button
+            id="sidebar-toggle"
+            class="sidebar-toggle-btn"
+            type="button"
+            aria-controls="app-sidebar"
+            aria-expanded="true"
+            aria-label="Close menu"
+        >
+            &lsaquo;
+        </button>
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
-<nav class="side-links">
-    <a href="{{ url_for('feed') }}">🏠 Feed</a>
-    <a href="{{ url_for('users') }}">👥 Users</a>
-    <a href="{{ url_for('search') }}">🔎 Search</a>
+        <aside id="app-sidebar" class="sidebar">
+            <div class="sidebar-scroll">
+                <a href="{{ url_for('feed') }}" class="brand big-brand">FamShare</a>
 
-    {% if current_user_data %}
-        <a href="{{ url_for('create_post') }}">➕ Create</a>
-        <a href="{{ url_for('create_story') }}">📸 Add Story</a>
-        <a href="{{ url_for('chat_list') }}">💬 Messages</a>
-        <a href="{{ url_for('ai_tools') }}">🤖 AI Tools</a>
-        <a href="{{ url_for('profile', user_id=current_user_data.id) }}">🙍 Profile</a>
-        <a href="{{ url_for('edit_profile') }}">✏️ Edit Profile</a>
-        <a href="{{ url_for('logout') }}">🚪 Logout</a>
-    {% else %}
-        <a href="{{ url_for('login') }}">🔐 Login</a>
-        <a href="{{ url_for('register') }}">📝 Register</a>
-    {% endif %}
-</nav>
+                <a class="sidebar-profile" href="{{ url_for('profile', user_id=current_user_data.id) }}">
+                    <img
+                        class="avatar"
+                        src="{{ url_for('static', filename='uploads/profiles/' + current_user_data.profile_pic) if current_user_data.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}"
+                        alt="{{ current_user_data.username }} profile"
+                    >
+                    <div>
+                        <strong>{{ current_user_data.username }}</strong>
+                        <span>View profile</span>
+                    </div>
+                </a>
 
-                <button id="theme-toggle" class="theme-toggle-btn">🌙 Dark Mode</button>
+                <nav class="side-links" aria-label="Main navigation">
+                    <button id="open-sos-modal" class="sos-nav-btn" type="button">SOS</button>
+                    <a href="{{ url_for('feed') }}">Home</a>
+                    <a href="{{ url_for('emergency_feed') }}">Emergency Feed</a>
+                    <a href="{{ url_for('search') }}">Search</a>
+                    <a href="{{ url_for('create_post') }}">Create Post</a>
+                    <a href="{{ url_for('create_story') }}">Add Story</a>
+                    <a href="{{ url_for('chat_list') }}">Messages</a>
+                    <a href="{{ url_for('ai_tools') }}">AI Tools</a>
+                    <a href="{{ url_for('logout') }}">Logout</a>
+                </nav>
             </div>
 
-            <div class="sidebar-bottom">
-                <a href="{{ url_for('admin_login') }}" class="admin-link">Admin Panel</a>
-            </div>
+            <button id="theme-toggle" class="theme-toggle-btn" type="button">Dark Mode</button>
         </aside>
         {% endif %}
 
-        <main class="{% if session.get('user_id') %}main-area{% else %}public-main{% endif %}">
+        <main class="{% if session.get('user_id') and current_user_data %}main-area{% else %}public-main{% endif %}">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -66,6 +76,51 @@
         </main>
     </div>
 
+    {% if session.get('user_id') and current_user_data %}
+    <div id="sos-modal" class="sos-modal" aria-hidden="true">
+        <div class="sos-modal-card">
+            <button id="close-sos-modal" class="sos-close-btn" type="button" aria-label="Close SOS">×</button>
+            <h2>Emergency SOS</h2>
+            <p class="muted">Nearby FamShare users will be alerted in real time.</p>
+            <form id="sos-form">
+                <label>Emergency Type</label>
+                <select name="emergency_type" required>
+                    <option value="Medical Emergency">Medical Emergency</option>
+                    <option value="Accident">Accident</option>
+                    <option value="Safety Threat">Safety Threat</option>
+                    <option value="Blood Requirement">Blood Requirement</option>
+                    <option value="Natural Disaster">Natural Disaster</option>
+                    <option value="Other">Other</option>
+                </select>
+
+                <label>Short Description</label>
+                <textarea name="description" rows="3" placeholder="What happened?"></textarea>
+
+                <label>Current Location</label>
+                <input type="text" name="location_text" placeholder="Area, landmark, city">
+                <button class="btn" id="use-current-location" type="button">Use Current Location</button>
+                <p class="muted" id="sos-location-status"></p>
+
+                <label>Registered Contact Number</label>
+                <input type="tel" name="contact_number" value="{{ current_user_data.phone_number or '' }}" placeholder="Registered mobile number">
+
+                <label>Optional Emergency Number</label>
+                <input type="tel" name="optional_contact_number" value="{{ current_user_data.optional_phone_number or '' }}" placeholder="Family or backup contact">
+
+                <input type="hidden" name="latitude">
+                <input type="hidden" name="longitude">
+
+                <button class="sos-submit-btn" type="submit">Send SOS Alert</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="emergency-toast" class="emergency-toast" aria-live="assertive"></div>
+    {% endif %}
+
+    {% if session.get('user_id') and current_user_data %}
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

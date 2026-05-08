@@ -1,0 +1,11 @@
+.env
+venv/
+__pycache__/
+*.py[cod]
+instance/
+static/uploads/posts/*
+static/uploads/profiles/*
+!static/uploads/posts/.gitkeep
+!static/uploads/profiles/.gitkeep
+.DS_Store
+Thumbs.db

@@ -6,6 +6,12 @@ def current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return None
+
     try:
         db = get_db()
         return db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()

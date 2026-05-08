@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="emergency-hero">
+    <div>
+        <h2>Emergency Feed</h2>
+        <p>Active SOS alerts from FamShare users who may need immediate help.</p>
+    </div>
+    <button class="sos-submit-btn" data-open-sos type="button">Send SOS</button>
+</div>
+
+{% for alert in alerts %}
+    <article class="card emergency-alert-card" data-alert-id="{{ alert.id }}">
+        <div class="emergency-alert-top">
+            <div>
+                <strong>{{ alert.emergency_type }}</strong>
+                <span class="severity-pill">{{ alert.severity }}</span>
+            </div>
+            <span class="muted">{{ alert.created_at }}</span>
+        </div>
+        <p><strong>{{ alert.username }}</strong> needs help.</p>
+        {% if alert.description %}<p>{{ alert.description }}</p>{% endif %}
+        {% if alert.location_text %}<p><strong>Location:</strong> {{ alert.location_text }}</p>{% endif %}
+        {% if alert.contact_number %}<p><strong>Contact:</strong> {{ alert.contact_number }}</p>{% endif %}
+        {% if alert.optional_contact_number %}<p><strong>Backup Contact:</strong> {{ alert.optional_contact_number }}</p>{% endif %}
+        {% if alert.latitude and alert.longitude %}
+            <p><a href="https://www.google.com/maps?q={{ alert.latitude }},{{ alert.longitude }}" target="_blank" rel="noopener">Open current location on map</a></p>
+        {% endif %}
+        <div class="ai-emergency-box">{{ alert.ai_guidance }}</div>
+        <div class="emergency-actions">
+            <button class="btn emergency-help-btn" data-alert-id="{{ alert.id }}" type="button">I Can Help</button>
+            {% if session.get('user_id') == alert.user_id %}
+                <button class="btn emergency-safe-btn" data-alert-id="{{ alert.id }}" type="button">Mark as Safe</button>
+            {% endif %}
+            <a class="btn" href="{{ url_for('emergency_chat', alert_id=alert.id) }}">Emergency Chat</a>
+            <span class="muted">{{ alert.helper_count }} helpers responding</span>
+        </div>
+    </article>
+{% else %}
+    <div class="card">No active emergency alerts right now.</div>
+{% endfor %}
+{% endblock %}

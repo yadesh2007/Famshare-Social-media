@@ -10,7 +10,21 @@
         <textarea name="bio" rows="4">{{ user.bio }}</textarea>
 
         <label>Profile Picture</label>
-        <input type="file" name="profile_pic" accept="image/*">
+        <div class="edit-profile-photo-row">
+            <label class="profile-photo-picker">
+                <img
+                    id="profile-photo-preview"
+                    class="avatar"
+                    src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}"
+                    data-default-src="{{ url_for('static', filename='img/default.png') }}"
+                    alt="{{ user.username }} profile"
+                >
+                <span>Choose photo</span>
+                <input id="profile-photo-input" type="file" name="profile_pic" accept="image/*">
+            </label>
+            <button id="remove-profile-photo" class="photo-remove-btn" type="button" aria-label="Remove profile photo">×</button>
+            <input id="remove-profile-photo-input" type="hidden" name="remove_profile_pic" value="0">
+        </div>
 
         <button type="submit" class="btn">Save Profile</button>
     </form>

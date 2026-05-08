@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card emergency-alert-card">
+    <h2>{{ alert.emergency_type }} Chat</h2>
+    <p><strong>{{ alert.username }}</strong> requested help.</p>
+    {% if alert.description %}<p>{{ alert.description }}</p>{% endif %}
+</div>
+
+<div id="emergency-chat-box" class="card emergency-chat-box" data-alert-id="{{ alert.id }}">
+    {% for msg in messages %}
+        <div class="emergency-chat-message">
+            <strong>{{ msg.username }}</strong>
+            <span class="muted">{{ msg.created_at }}</span>
+            <p>{{ msg.message_text }}</p>
+        </div>
+    {% else %}
+        <p class="muted">No emergency chat messages yet.</p>
+    {% endfor %}
+</div>
+
+<form class="chat-send-form" method="POST">
+    <input type="text" name="message_text" placeholder="Send update to responders..." required>
+    <button class="btn" type="submit">Send</button>
+</form>
+{% endblock %}

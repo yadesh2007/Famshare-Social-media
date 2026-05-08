@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="stories">
+<div class="stories" aria-label="Stories">
     {% if session.get('user_id') %}
     <a href="{{ url_for('create_story') }}" class="story">
         <div class="story-ring add-story-ring">
@@ -14,20 +14,27 @@
     {% for user in story_users %}
     <a href="{{ url_for('view_stories', user_id=user.id) }}" class="story">
         <div class="story-ring {% if user.has_unseen %}unseen-story{% else %}seen-story{% endif %}">
-            <img src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="story">
+            <img
+                src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) if user.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}"
+                alt="{{ user.username }} story"
+            >
         </div>
         <span>{{ user.username }}</span>
     </a>
     {% endfor %}
 </div>
 
-<h2 class="page-title">Feed</h2>
+<h2 class="page-title">Home</h2>
 
 {% if posts %}
     {% for post in posts %}
-        <div class="card insta-post">
+        <article class="card insta-post">
             <div class="post-header">
-                <img class="avatar" src="{{ url_for('static', filename='uploads/profiles/' + post.profile_pic) if post.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}" alt="profile">
+                <img
+                    class="avatar"
+                    src="{{ url_for('static', filename='uploads/profiles/' + post.profile_pic) if post.profile_pic != 'default.png' else url_for('static', filename='img/default.png') }}"
+                    alt="{{ post.username }} profile"
+                >
                 <div>
                     <a class="username" href="{{ url_for('profile', user_id=post.user_id) }}">{{ post.username }}</a>
                     <div class="muted">{{ post.created_at }}</div>
@@ -40,9 +47,9 @@
 
             {% if post.media_file %}
                 {% if post.media_type == 'image' %}
-                    <img class="post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}" alt="post image">
+                    <img class="post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}" alt="post image" loading="lazy">
                 {% elif post.media_type == 'video' %}
-                    <video class="post-media" controls>
+                    <video class="post-media" controls preload="metadata">
                         <source src="{{ url_for('static', filename='uploads/posts/' + post.media_file) }}">
                     </video>
                 {% endif %}
@@ -51,7 +58,7 @@
             <div class="post-actions">
                 {% if session.get('user_id') %}
                     <form method="POST" action="{{ url_for('like_post', post_id=post.id) }}">
-                        <button type="submit" class="btn small-btn">❤️ Like / Unlike</button>
+                        <button type="submit" class="btn small-btn">Like / Unlike</button>
                     </form>
                 {% endif %}
 
@@ -67,7 +74,7 @@
             </div>
 
             <div class="comments">
-                {% for comment in comments_map[post.id] %}
+                {% for comment in comments_map.get(post.id, []) %}
                     <div class="comment-item"><strong>{{ comment.username }}</strong>: {{ comment.comment_text }}</div>
                 {% else %}
                     <div class="muted">No comments yet.</div>
@@ -76,11 +83,11 @@
 
             {% if session.get('user_id') %}
                 <form method="POST" action="{{ url_for('comment_post', post_id=post.id) }}" class="comment-form">
-                    <input type="text" name="comment_text" placeholder="Add a comment..." required>
+                    <input type="text" name="comment_text" placeholder="Add a comment..." maxlength="500" required>
                     <button type="submit" class="btn small-btn">Post</button>
                 </form>
             {% endif %}
-        </div>
+        </article>
     {% endfor %}
 {% else %}
     <div class="card">No posts yet.</div>

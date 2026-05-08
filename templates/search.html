@@ -13,8 +13,9 @@
     {% for user in users_result %}
         <div class="card">
             <a href="{{ url_for('profile', user_id=user.id) }}"><strong>{{ user.username }}</strong></a>
-            <p>{{ user.email }}</p>
-            <p>{{ user.bio }}</p>
+            {% if user.bio %}
+                <p>{{ user.bio }}</p>
+            {% endif %}
         </div>
     {% else %}
         <div class="card">No users found.</div>
